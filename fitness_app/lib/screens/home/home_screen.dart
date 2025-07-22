@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../services/auth_service.dart';
+import '../../providers/fitness_providers.dart';
+import '../../widgets/animated_number.dart';
+import '../../models/user.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -66,103 +70,120 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Widget _buildWelcomeHeader(UserProfile profile) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Welcome back, ${profile.displayName ?? 'User'}!',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Ready to crush your goals today?',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (profile.primaryGoal != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(profile as BuildContext).colorScheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  profile.primaryGoal!.name.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12,
+    return Builder(
+      builder: (context) {
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome back, ${profile.displayName ?? 'User'}!',
+                  style: const TextStyle(
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(profile as BuildContext).colorScheme.primary,
                   ),
                 ),
-              ),
-          ],
-        ),
-      ),
+                const SizedBox(height: 8),
+                Text(
+                  'Ready to crush your goals today?',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (profile.primaryGoal != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      profile.primaryGoal!.name.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildQuickStats() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Your Stats',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+    return Consumer(
+      builder: (context, ref, _) {
+        final workoutStats = ref.watch(workoutStatsProvider);
+        
+        return workoutStats.when(
+          data: (stats) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Your Stats',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      context,
+                      icon: Icons.local_fire_department,
+                      title: 'Calories Burned',
+                      value: stats.caloriesBurned.toString(),
+                      subtitle: 'This week',
+                      color: Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      context,
+                      icon: Icons.timer,
+                      title: 'Workout Time',
+                      value: '${stats.totalWorkoutTime.inHours}h ${stats.totalWorkoutTime.inMinutes % 60}m',
+                      subtitle: 'This week',
+                      color: Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      context,
+                      icon: Icons.trending_up,
+                      title: 'Current Streak',
+                      value: stats.currentStreak.toString(),
+                      subtitle: 'Days',
+                      color: Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.local_fire_department,
-                title: 'Calories Burned',
-                value: '2,450',
-                subtitle: 'This week',
-                color: Colors.orange,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.timer,
-                title: 'Workout Time',
-                value: '4h 30m',
-                subtitle: 'This week',
-                color: Colors.blue,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.trending_up,
-                title: 'Current Streak',
-                value: '7',
-                subtitle: 'Days',
-                color: Colors.green,
-              ),
-            ),
-          ],
-        ),
-      ],
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(child: Text('Error: $error')),
+        );
+      },
     );
   }
 
-  Widget _buildStatCard({
+  Widget _buildStatCard(BuildContext context, {
     required IconData icon,
     required String title,
     required String value,
@@ -176,8 +197,8 @@ class HomeScreen extends ConsumerWidget {
           children: [
             Icon(icon, color: color, size: 32),
             const SizedBox(height: 8),
-            Text(
-              value,
+            AnimatedNumber(
+              value: value,
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -264,48 +285,109 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Widget _buildProgressOverview() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Progress Overview',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              children: [
-                const Text(
-                  'Weekly Progress',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'Progress Chart',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ),
-              ],
+    return Consumer(
+      builder: (context, ref, _) {
+        final weightEntries = ref.watch(weightEntriesProvider);
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Progress Overview',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-        ),
-      ],
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Weight Progress',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => context.go('/profile/progress'),
+                          child: const Text('View Details'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 200,
+                      child: weightEntries.when(
+                        data: (entries) {
+                          if (entries.isEmpty) {
+                            return const Center(
+                              child: Text('No weight data available'),
+                            );
+                          }
+
+                          return LineChart(
+                            LineChartData(
+                              gridData: FlGridData(show: false),
+                              titlesData: FlTitlesData(
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    getTitlesWidget: (value, meta) {
+                                      if (value.toInt() >= entries.length) return const Text('');
+                                      return Text(
+                                        dateFormatters['short']!.format(entries[value.toInt()].date),
+                                        style: const TextStyle(fontSize: 10),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                rightTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                topTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                              ),
+                              borderData: FlBorderData(show: false),
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: entries.asMap().entries.map((entry) {
+                                    return FlSpot(entry.key.toDouble(), entry.value.weight);
+                                  }).toList(),
+                                  isCurved: true,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  barWidth: 3,
+                                  dotData: FlDotData(show: false),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (error, stack) => Center(child: Text('Error: $error')),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -325,6 +407,7 @@ class HomeScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: _buildActionCard(
+                context,
                 icon: Icons.add,
                 title: 'Log Workout',
                 onTap: () => context.go('/workouts'),
@@ -333,6 +416,7 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _buildActionCard(
+                context,
                 icon: Icons.restaurant,
                 title: 'Log Meal',
                 onTap: () => context.go('/nutrition'),
@@ -341,6 +425,7 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _buildActionCard(
+                context,
                 icon: Icons.photo_camera,
                 title: 'Progress Photo',
                 onTap: () {
@@ -354,7 +439,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActionCard({
+  Widget _buildActionCard(BuildContext context, {
     required IconData icon,
     required String title,
     required VoidCallback onTap,

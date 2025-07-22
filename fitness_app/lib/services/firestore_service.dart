@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../models/workout.dart';
 import '../models/nutrition.dart';
+import '../models/weight_entry.dart';
+import '../models/workout_stats.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
@@ -19,6 +21,85 @@ class FirestoreService {
   CollectionReference get _foods => _firestore.collection('foods');
   CollectionReference get _dailyNutrition => _firestore.collection('dailyNutrition');
   CollectionReference get _recipes => _firestore.collection('recipes');
+  CollectionReference get _weightEntries => _firestore.collection('weightEntries');
+
+  // Workout Stats Methods
+  Stream<WorkoutStats> getWorkoutStats(String userId) {
+    return _workoutSessions
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+      final docs = snapshot.docs;
+      
+      // Calculate stats
+      final workoutsCompleted = docs.length;
+      var totalCalories = 0;
+      var totalDuration = Duration.zero;
+      final activeDays = <DateTime>{};
+      
+      for (var doc in docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        totalCalories += (data['caloriesBurned'] as num).toInt();
+        totalDuration += Duration(minutes: (data['duration'] as num).toInt());
+        activeDays.add((data['date'] as Timestamp).toDate());
+      }
+      
+      // Calculate streak
+      var currentStreak = 0;
+      final today = DateTime.now();
+      var checkDate = today;
+      
+      while (activeDays.contains(checkDate)) {
+        currentStreak++;
+        checkDate = checkDate.subtract(const Duration(days: 1));
+      }
+      
+      return WorkoutStats(
+        workoutsCompleted: workoutsCompleted,
+        currentStreak: currentStreak,
+        caloriesBurned: totalCalories,
+        totalWorkoutTime: totalDuration,
+        weeklyActivedays: activeDays.where((date) =>
+          date.isAfter(today.subtract(const Duration(days: 7)))).length,
+        averageWorkoutDuration: totalDuration.inMinutes / workoutsCompleted,
+      );
+    });
+  }
+
+  // Weight Tracking Methods
+  Stream<List<WeightEntry>> getWeightEntries(String userId) {
+    return _weightEntries
+        .where('userId', isEqualTo: userId)
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => WeightEntry.fromFirestore(doc.data() as Map<String, dynamic>))
+            .toList());
+  }
+
+  Future<void> addWeightEntry(String userId, WeightEntry entry) {
+    return _weightEntries.add({
+      'userId': userId,
+      ...entry.toFirestore(),
+    });
+  }
+
+  // Today's Workout Methods
+  Future<Map<String, dynamic>?> getTodaysWorkout(String userId) async {
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    final snapshot = await _workouts
+        .where('userId', isEqualTo: userId)
+        .where('scheduledDate', isGreaterThanOrEqualTo: startOfDay)
+        .where('scheduledDate', isLessThan: endOfDay)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) return null;
+    return snapshot.docs.first.data() as Map<String, dynamic>;
+  }
 
   // User Profile Operations
   Future<void> createUserProfile(UserProfile userProfile) async {

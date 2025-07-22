@@ -38,6 +38,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      // Root Route
+      GoRoute(
+        path: '/',
+        redirect: (_, __) => '/home',
+      ),
+      
       // Auth Routes
       GoRoute(
         path: '/login',
@@ -71,13 +77,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const WorkoutsScreen(),
             routes: [
               GoRoute(
-                path: '/detail/:workoutId',
+                path: 'detail/:workoutId',
                 builder: (context, state) => WorkoutDetailScreen(
                   workoutId: state.pathParameters['workoutId']!,
                 ),
               ),
               GoRoute(
-                path: '/exercises',
+                path: 'exercises',
                 builder: (context, state) => const ExerciseLibraryScreen(),
               ),
             ],
@@ -91,7 +97,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ProfileScreen(),
             routes: [
               GoRoute(
-                path: '/progress',
+                path: 'progress',
                 builder: (context, state) => const ProgressScreen(),
               ),
             ],
